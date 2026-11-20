@@ -1,0 +1,55 @@
+digraph MoneyRoute {
+  graph [rankdir=TB, newrank=true, fontname="Helvetica", fontsize=12, nodesep=0.3, ranksep=0.35, bgcolor="white", pad=0.2];
+  node  [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, fillcolor="#ffffff", color="#555555", penwidth=1.2];
+  edge  [fontname="Helvetica", fontsize=9, color="#555555", arrowsize=0.7];
+
+  subgraph cluster_data {
+    label="Data in (synthetic only)"; style="rounded,dashed"; color="#999999"; fontcolor="#444444";
+    feed   [label="Bank feed\n(Plaid-style, synthetic)\n6 accounts · 12 months", fillcolor="#f4f6f8"];
+    src    [label="IRS + CFPB pages\n(dated snapshots)", fillcolor="#f4f6f8"];
+  }
+
+  g1     [label="G1 Privacy gateway\nallowlist fields · alias accounts\nredact PII · quarantine injected memos", fillcolor="#fdeeee", color="#9b1c22"];
+  ledger [label="Read-only ledger\nSQLite mode=ro · 4 views\nauthorizer", shape=cylinder, fillcolor="#eef3fb"];
+  qdrant [label="Qdrant (local)\n62 chunks · Qwen3-Embedding\nyear tags", shape=cylinder, fillcolor="#eef3fb"];
+  feed -> g1 -> ledger;
+  src -> qdrant [label="chunk by section\nallowlisted domains"];
+
+  subgraph cluster_graph {
+    label="LangGraph StateGraph · typed shared state · checkpointer"; style="rounded"; color="#1f4e79"; fontcolor="#1f4e79";
+    sup   [label="Supervisor\nQwen3 8B\nG2 typed Plan + scope screen", fillcolor="#fff6e0"];
+    la    [label="Ledger analyst\nG3 SQL guard\nrecurring · transfers · reconcile", fillcolor="#fff6e0"];
+    gr    [label="Guidance researcher\nyear-filtered search\nquote verified in code", fillcolor="#fff6e0"];
+    join  [label="Join + calculator\n(code)", fillcolor="#f4f6f8"];
+    tot   [label="Goal planner · Tree of Thought\ngenerator → hard checks → critic\nbeam 2 · depth 3 · ≤12 calls", fillcolor="#fff6e0"];
+    draft [label="Supervisor drafts\nfrom facts sheet", fillcolor="#fff6e0"];
+    g4    [label="G4 Output gate\ncode: figures, years, citations, PII\n+ Gemma 4 reviewer", fillcolor="#fdeeee", color="#9b1c22"];
+    rr    [label="Risk router\nmax(signals) → lane", fillcolor="#fdeeee", color="#9b1c22"];
+    sup -> la [label="Send()"];
+    sup -> gr [label="Send()\ntask text only"];
+    la -> join; gr -> join;
+    join -> tot [label="goal off track"];
+    join -> draft [label="on track /\nquestion"];
+    tot -> draft;
+    draft -> g4;
+    g4 -> draft [label="revise ≤ 2", style=dashed, constraint=false];
+    g4 -> rr [label="pass\n(or verified-facts fallback)"];
+  }
+
+  ledger -> la [style=dashed, arrowhead=none];
+  qdrant -> gr [style=dashed, arrowhead=none];
+
+  lanes [label="AUTO · BATCH · HUMAN_NOW · BLOCK", shape=box, fillcolor="#f4f6f8"];
+  user  [label="User approval card\ninterrupt() · approve / edit / reject\nanswers HUMAN_NOW questions", fillcolor="#e6f2e6", color="#2e7d32"];
+  mem   [label="Long-term memory\nsemantic · episodic · procedural\nwritten only after approval", shape=cylinder, fillcolor="#e6f2e6"];
+  audit [label="Audit log (redacted JSONL)\nplan-tree store · eval suite", shape=note, fillcolor="#f4f6f8"];
+  rr -> lanes -> user -> mem;
+  {rank=same; feed; src;}
+  {rank=same; g1; qdrant;}
+  {rank=same; la; gr;}
+  {rank=same; join; tot;}
+  {rank=same; draft; g4; rr;}
+  {rank=same; lanes; user; mem; audit;}
+  mem -> sup [style=dashed, label="goals, keep list,\nemergency minimum", constraint=false];
+  rr -> audit [style=dotted];
+}

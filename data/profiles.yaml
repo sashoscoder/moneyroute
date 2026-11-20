@@ -1,0 +1,25 @@
+# Synthetic user profiles. Every person, account number and transaction is invented.
+# "alex" is the running example used in Checkpoints 2.1-6.1. The other profiles are
+# variations used by the evaluation suite (eval/cases.yaml).
+
+alex:
+  name: Alex (synthetic)
+  age_band: under 50
+  checkin_month: "2026-10"
+  goal: {name: Home down payment, target: 50000, deadline: "2028-12"}
+  goal_balance: 34000
+  goal_transfer: 500
+  emergency_balance: 12500
+  emergency_min: 12000
+  ira_monthly: 250
+  ira_lump_january: 500
+  income_paycheck: 3100
+  rent: 2100
+  utilities: 160
+  categories: {Dining: 420, Groceries: 520, Shopping: 300, Entertainment: 120, Transport: 180}
+  subscriptions:
+    - {merchant: StreamCo, price: 15.49, new_price: 17.99}
+    - {merchant: MusicBox, price: 10.99}
+    - {merchant: CloudDrive, price: 9.99}
+    - {merchant: FitLife Gym, price: 45.00}
+  keep: [FitLife Gym]

@@ -1,0 +1,9 @@
+langgraph>=1.0
+langgraph-checkpoint-sqlite>=2.0
+qdrant-client>=1.12
+requests>=2.31
+beautifulsoup4>=4.12
+pyyaml>=6.0
+streamlit>=1.40
+pandas>=2.0
+pytest>=8

@@ -1,0 +1,24 @@
+
+trace 6434243d12f9 | 5.3 s | 4 LLM calls
+plan: {"intent": "question", "tasks": ["ledger_question", "guidance"], "blocked": [], "llm_scope_flag": null, "guidance_task": "annual IRA contribution limit", "ledger_question": "IRA contributions this year", "tax_year": 2026}
+
+FINDINGS
+  [L9] (ledger_analyst) $3,000.00 contributed to the IRA for tax year 2026.
+  [G1] (guidance_researcher) IRS (Retirement topics - IRA contribution limits, tax year 2026): "For 2026, the total contributions you make each year to all of your traditional IRAs and Roth IRAs can’t be more than: $7,500 ($8,600 if you’re age 50 or older), or If less, your taxable compensation for the year" [S1]
+  [C1] (calculator) Remaining IRA room for 2026: $7,500.00 limit - $3,000.00 contributed = $4,500.00.
+
+OUTPUT GATE
+  rev 0: code=pass reviewer=approved
+
+DRAFT (llm)
+For tax year 2026, the maximum IRA contribution limit is $7,500.00 if you're under age 50, or $8,600.00 if you're 50 or older [G1]. You've already contributed $3,000.00 to your IRA [L9]. 
+
+- Remaining IRA room for 2026: $4,500.00  
+- This is calculated as: $7,500.00 (limit) - $3,000.00 (contributed) = $4,500.00 [C1]  
+
+You can contribute up to $4,500.00 more to your IRA this year, provided you have sufficient taxable compensation. Always confirm with a tax professional for personalized advice.
+
+RISK ROUTER
+  AUTO       L9             $3,000.00 contributed to the IRA for tax year 2026.
+  AUTO       G1             IRS (Retirement topics - IRA contribution limits, tax year 2026): "For 2026, the total con
+  AUTO       C1             Remaining IRA room for 2026: $7,500.00 limit - $3,000.00 contributed = $4,500.00.

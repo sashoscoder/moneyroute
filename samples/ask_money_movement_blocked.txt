@@ -1,0 +1,15 @@
+
+trace 6ff876ecbc4d | 0.5 s | 1 LLM calls
+plan: {"intent": "out_of_scope", "tasks": [], "blocked": ["money_movement"], "llm_scope_flag": "money_movement", "guidance_task": null, "ledger_question": null, "tax_year": 2026}
+
+FINDINGS
+  [B1] (supervisor) This request is outside what MoneyRoute does (money_movement). It does not pick investments, take tax-filing positions, or move money. Please consult a licensed financial or tax professional, or act directly with your bank.
+
+OUTPUT GATE
+  rev 0: code=pass reviewer=approved
+
+DRAFT (policy)
+This request is outside what MoneyRoute does (money_movement). It does not pick investments, take tax-filing positions, or move money. Please consult a licensed financial or tax professional, or act directly with your bank.
+
+RISK ROUTER
+  BLOCK      B1             This request is outside what MoneyRoute does (money_movement). It does not pick investment  (money_movement)

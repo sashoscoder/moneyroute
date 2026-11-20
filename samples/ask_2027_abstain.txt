@@ -1,0 +1,17 @@
+
+trace bc32c32491fb | 2.8 s | 3 LLM calls
+plan: {"intent": "question", "tasks": ["ledger_question", "guidance"], "blocked": [], "llm_scope_flag": null, "guidance_task": "IRA contribution limit for 2027", "ledger_question": "IRA contributions for tax year 2027", "tax_year": 2027}
+
+FINDINGS
+  [L9] (ledger_analyst) $0.00 contributed to the IRA for tax year 2027.
+  [G1] (guidance_researcher) No verified official guidance was found for 'IRA contribution limit for 2027. User question: What will the IRA contribution limit be in 2027? Report the TOTAL annual limit for all IRAs combined for this person (for age 50 or older, the higher total that already includes the catch-up), not the catch-up amount by itself.' (tax year 2027); MoneyRoute does not guess.
+
+OUTPUT GATE
+  rev 0: code=pass reviewer=approved
+
+DRAFT (llm)
+The IRA contribution limit for tax year 2027 has not been officially confirmed by any verified sources [G1]. As of now, there is no official guidance available to determine the total annual limit for all IRAs combined, including any catch-up contributions for individuals aged 50 or older [G1]. MoneyRoute cannot provide an estimate or guess regarding the 2027 limit. The user should consult the IRS or a qualified tax professional for the most accurate and up-to-date information. No contribution amount was recorded for 2027 [L9]. Always verify with official sources before making any investment decisions.
+
+RISK ROUTER
+  AUTO       L9             $0.00 contributed to the IRA for tax year 2027.
+  BLOCK      G1             No verified official guidance was found for 'IRA contribution limit for 2027. User questio  (confidence 0.00 < 0.7; abstain)

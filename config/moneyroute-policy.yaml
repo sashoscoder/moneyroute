@@ -1,0 +1,46 @@
+# MoneyRoute static policy. Guardrails live here and in code, not in prompts.
+mode: normal               # normal | summary_only (kill switch: no planning, no memory writes)
+
+models:
+  ollama_url: http://localhost:11434
+  agent: qwen3:8b          # supervisor, ledger analyst, guidance researcher, ToT generator and critic
+  reviewer: gemma4:e4b     # independent reviewer from a different model family
+  embed: qwen3-embedding:0.6b
+  generator_temperature: 0.8
+  analyst_temperature: 0
+
+access:
+  db_mode: read_only       # ledger is opened with mode=ro
+  statement: SELECT        # G3: one SELECT statement only
+  views: [txn, monthly_spend, balances, contributions]
+
+tools:                     # G3: per-agent allowlist
+  supervisor: []
+  ledger_analyst: [ledger_sql, detect_recurring, match_transfers, reconcile, calculator]
+  guidance_researcher: [search_guidance]
+  goal_planner: [forecast_goal, check_constraints, plan_tree]
+  reviewer: [check_figures]
+  money_movement: none
+  send_email: none
+
+bounds:
+  max_category_cut: 0.25   # no discretionary category cut by more than 25 %
+  max_change_monthly: 500  # changes above this go to HUMAN_NOW
+  confidence_min: 0.70     # transfer-match or category confidence below this -> HUMAN_NOW
+  totals_tolerance: 1.00   # reconciliation difference above this -> HUMAN_NOW
+  discretionary: [Dining, Shopping, Entertainment]
+
+budget:
+  tot_llm_calls: 12        # 5 generator, 5 critic, 2 reserve
+  tot_minutes: 3
+  revisions: 2
+  beam_width: 2
+  prune_below: 6.0
+
+retrieval:
+  top_k: 4
+  min_score: 0.5
+  allow_domains: [irs.gov, consumerfinance.gov, investor.gov]
+
+audit:
+  retention_days: 90

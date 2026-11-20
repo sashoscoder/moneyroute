@@ -1,0 +1,29 @@
+[project]
+name = "moneyroute"
+version = "1.0.0"
+description = "Privacy-first personal finance agent: five local agents, Tree-of-Thought planning, cited guidance, and code guardrails"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langgraph>=1.0",
+    "langgraph-checkpoint-sqlite>=2.0",
+    "qdrant-client>=1.12",
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pyyaml>=6.0",
+    "streamlit>=1.40",
+    "pandas>=2.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+moneyroute = "moneyroute.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["moneyroute*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
