@@ -116,6 +116,40 @@ def test_oracle():
     assert o["feasible"] and o["R"] == 10 and o["levers"] == 2
 
 
+def _tight(ctx, levers):
+    from moneyroute.planner import tighten
+    out = tighten(ctx, levers)
+    ev = evaluate_levers(ctx, out)
+    assert not ev["violations"] and ev["coverage"] + 0.01 >= ctx["gap"]
+    return out, ev
+
+
+def test_tighten_drops_unneeded_cuts_when_ira_is_needed():
+    # Case C04: $7,000 gap; cuts alone cannot close it, so the IRA must be touched; then most cuts are unneeded.
+    ctx = {**CTX, "goal_balance": 30000, "forecast": 43000, "gap": 7000, "monthly_needed": 269.23}
+    seven = [{"type": "cut_category", "target": c, "amount": a} for c, a in (("Dining", 105), ("Shopping", 75), ("Entertainment", 30))]
+    seven += [{"type": "cancel_subscription", "target": m, "amount": None} for m in ("StreamCo", "MusicBox", "CloudDrive")]
+    seven += [{"type": "reduce_ira", "target": None, "amount": 20.27}]
+    out, ev = _tight(ctx, seven)
+    assert ev["changes"] == 2 and ev["R"] == 7.5 and {l["type"] for l in out} == {"cut_category", "reduce_ira"}
+
+
+def test_tighten_turns_full_ira_stop_into_partial_reduction():
+    # Case C12: the model proposed stopping the whole $600 IRA contribution.
+    ctx = {**CTX, "goal_balance": 20000, "forecast": 33000, "gap": 17000, "monthly_needed": 653.85, "ira_monthly": 600}
+    out, ev = _tight(ctx, [{"type": "cancel_subscription", "target": "StreamCo"}, {"type": "pause_ira"},
+                          {"type": "cut_category", "target": "Dining", "amount": 105}])
+    assert ev["R"] == 7.5 and ev["changes"] == 2
+    assert next(l for l in out if l["type"] == "reduce_ira")["amount"] < 600
+
+
+def test_tighten_drops_extra_subscription():
+    # Case C07: dining alone can close the gap.
+    ctx = {**CTX, "category_avg": {"Dining": 600, "Shopping": 150, "Entertainment": 90}}
+    out, ev = _tight(ctx, [{"type": "cancel_subscription", "target": "CloudDrive"}, {"type": "cut_category", "target": "Dining", "amount": 150}])
+    assert ev["changes"] == 1 and out[0]["target"] == "Dining" and out[0]["amount"] == pytest.approx(115.39)
+
+
 # ---- G4 output gate and risk router -----------------------------------------------------
 
 SHEET = ["[L8] Gap of $3,000.00 ($115.38/month over 26 months) by 2028-12.", "[P1] Recommended plan: cancel StreamCo; forecast $50,067.74."]

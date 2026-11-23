@@ -1,5 +1,5 @@
 
-trace 6434243d12f9 | 5.3 s | 4 LLM calls
+trace 008750a94cce | 5.2 s | 4 LLM calls
 plan: {"intent": "question", "tasks": ["ledger_question", "guidance"], "blocked": [], "llm_scope_flag": null, "guidance_task": "annual IRA contribution limit", "ledger_question": "IRA contributions this year", "tax_year": 2026}
 
 FINDINGS

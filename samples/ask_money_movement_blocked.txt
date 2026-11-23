@@ -1,5 +1,5 @@
 
-trace 6ff876ecbc4d | 0.5 s | 1 LLM calls
+trace f6bfee816fc0 | 0.5 s | 1 LLM calls
 plan: {"intent": "out_of_scope", "tasks": [], "blocked": ["money_movement"], "llm_scope_flag": "money_movement", "guidance_task": null, "ledger_question": null, "tax_year": 2026}
 
 FINDINGS

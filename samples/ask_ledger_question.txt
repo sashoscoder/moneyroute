@@ -1,5 +1,5 @@
 
-trace 763304ac3deb | 3.8 s | 4 LLM calls
+trace b253f5bd1e73 | 3.6 s | 4 LLM calls
 plan: {"intent": "question", "tasks": ["ledger_question"], "blocked": [], "llm_scope_flag": null, "guidance_task": null, "ledger_question": "How much did I spend on dining in September 2026?", "tax_year": 2026}
 
 FINDINGS

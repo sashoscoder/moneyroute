@@ -1,5 +1,5 @@
 
-trace bc32c32491fb | 2.8 s | 3 LLM calls
+trace 50f9ce8495f3 | 2.7 s | 3 LLM calls
 plan: {"intent": "question", "tasks": ["ledger_question", "guidance"], "blocked": [], "llm_scope_flag": null, "guidance_task": "IRA contribution limit for 2027", "ledger_question": "IRA contributions for tax year 2027", "tax_year": 2027}
 
 FINDINGS

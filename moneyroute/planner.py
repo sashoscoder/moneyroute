@@ -7,6 +7,7 @@ Python decides what is pruned. Scores: V = 0.5 G + 0.3 S + 0.2 R.
 
 import itertools
 import json
+import math
 import random
 import sqlite3
 import time
@@ -98,6 +99,70 @@ def evaluate_levers(ctx: dict, levers: list[dict]) -> dict:
     return {"monthly_added": monthly, "lump": lump, "coverage": round(covered, 2), "G": round(g, 2),
             "R": max(0.0, 10 - penalty), "violations": violations, "touches": sorted(touches),
             "transfer": round(ctx["goal_transfer"] + monthly, 2), "changes": len(levers)}
+
+
+def tighten(ctx: dict, levers: list[dict]) -> list[dict]:
+    """Code sets the amounts: drop levers the plan does not need (riskiest first, then smallest),
+    then give each remaining lever the minimum amount that still closes the gap.
+
+    The generator decides WHICH levers; code decides HOW MUCH. Only called on plans that already pass
+    the hard checks, so rule-breaking proposals stay visible as pruned nodes.
+    """
+    cap_pct = policy()["bounds"]["max_category_cut"]
+    subs = {s["merchant"].lower(): s["price"] for s in ctx["subscriptions"]}
+    ef_room = max(0.0, ctx["emergency_balance"] - ctx["emergency_min"])
+    months = ctx["months"]
+    need = ctx["gap"]  # dollars by the deadline
+
+    def norm(lv):
+        lv = dict(lv)
+        if lv["type"] == "pause_ira":  # a pause is a reduce_ira at full amount; let code size it
+            lv = {"type": "reduce_ira", "target": None, "amount": ctx["ira_monthly"]}
+        return lv
+
+    def cap(lv) -> float:
+        """Most this lever can contribute by the deadline (dollars)."""
+        t = lv["type"]
+        if t == "cancel_subscription":
+            return subs.get((lv.get("target") or "").lower(), 0.0) * months
+        if t == "cut_category":
+            cat = next((c for c in ctx["category_avg"] if c.lower() == (lv.get("target") or "").lower()), None)
+            return (ctx["category_avg"][cat] * cap_pct if cat else 0.0) * months
+        if t == "reduce_ira":
+            return ctx["ira_monthly"] * months
+        if t == "use_emergency_fund":
+            return ef_room
+        return 0.0
+
+    def risk(lv) -> int:
+        return {"use_emergency_fund": 2, "reduce_ira": 1}.get(lv["type"], 0)
+
+    levers = [norm(l) for l in levers]
+    if sum(cap(l) for l in levers) + 0.01 < need:
+        return levers  # cannot close the gap even at the caps; leave as proposed (scored as partial)
+    # 1. drop unneeded levers: riskiest first, then the smallest contribution
+    changed = True
+    while changed and len(levers) > 1:
+        changed = False
+        for lv in sorted(levers, key=lambda l: (-risk(l), cap(l))):
+            rest = [l for l in levers if l is not lv]
+            if sum(cap(l) for l in rest) + 0.01 >= need:
+                levers, changed = rest, True
+                break
+    # 2. minimum amounts: fixed levers first, then the safest adjustable levers, largest first
+    remaining = need - sum(cap(l) for l in levers if l["type"] == "cancel_subscription")
+    out = [dict(l) for l in levers if l["type"] == "cancel_subscription"]
+    for lv in sorted([l for l in levers if l["type"] != "cancel_subscription"], key=lambda l: (risk(l), -cap(l))):
+        take = max(0.0, min(cap(lv), remaining))
+        remaining -= take
+        lv = dict(lv)
+        if lv["type"] == "use_emergency_fund":
+            lv["amount"] = math.ceil(round(take * 100, 6)) / 100
+        else:
+            lv["amount"] = math.ceil(round(take / months * 100, 6)) / 100
+        if lv["amount"] > 0:
+            out.append(lv)
+    return out
 
 
 def strategy_capacity(ctx: dict, strategy: str) -> tuple[float, float]:
@@ -403,15 +468,28 @@ class Planner:
             def expand(thoughts, source):
                 kids = []
                 for t in thoughts:
-                    levers = [l for l in t.get("levers", []) if l.get("type") in LEVER_TYPES]
+                    proposed = [l for l in t.get("levers", []) if l.get("type") in LEVER_TYPES]
+                    raw = evaluate_levers(ctx, proposed)
+                    off_strategy = [l["type"] for l in proposed if l["type"] not in allowed]
+                    levers = proposed
+                    if proposed and not raw["violations"] and not off_strategy:
+                        levers = tighten(ctx, proposed)
                     ev = evaluate_levers(ctx, levers)
-                    off_strategy = [l["type"] for l in levers if l["type"] not in allowed]
-                    node = self._node(2, parent["id"], {"levers": levers, "rationale": t.get("rationale", "")},
+                    thought = {"levers": levers, "rationale": t.get("rationale", "")}
+                    if levers != proposed:
+                        thought["proposed"] = proposed
+                    node = self._node(2, parent["id"], thought,
                                       summary="; ".join(lever_text(l) for l in levers) or "(empty plan)", eval=ev, source=source)
-                    if not levers:
+                    if levers != proposed:
+                        node["tightened_from"] = "; ".join(lever_text(l) for l in proposed)
+                    key = json.dumps(sorted((l["type"], (l.get("target") or "").lower(), l.get("amount")) for l in levers))
+                    if not proposed:
                         node["status"], node["prune_reason"] = "impossible", "empty plan"
-                    elif ev["violations"] or off_strategy:
-                        node["status"], node["prune_reason"] = "impossible", "; ".join(ev["violations"] + [f"lever {o} not in strategy" for o in off_strategy])
+                    elif raw["violations"] or off_strategy:
+                        node["status"], node["prune_reason"] = "impossible", "; ".join(raw["violations"] + [f"lever {o} not in strategy" for o in off_strategy])
+                    elif any(k.get("_key") == key and k["status"] == "open" for k in kids):
+                        node["status"], node["prune_reason"] = "pruned", "same plan as a sibling after tightening"
+                    node["_key"] = key
                     kids.append(node)
                 return kids
 

@@ -43,7 +43,7 @@ Five agents coordinated by a LangGraph `StateGraph` with typed shared state (Che
 | Supervisor | Qwen3 8B | Turns the request into a typed `Plan` (G2: scope screen + schema), drafts the summary from a facts sheet | `agents.py`, `graph.py` |
 | Ledger analyst | Qwen3 8B + SQL tools | Spending, recurring charges, transfer matching, reconciliation, contributions; agent-written SQL must pass G3 (one `SELECT`, approved views, SQLite authorizer, read-only file) | `ledger.py`, `agents.py` |
 | Guidance researcher | Qwen3 8B + Qdrant | Year-filtered retrieval over IRS/CFPB snapshots, extraction with an exact quote, **quote verified in code**, abstains below threshold; never sees ledger data | `guidance.py` |
-| Goal planner | Qwen3 8B generator + critic | Tree of Thought: depth 3 (strategy → levers → schedule), beam width 2, hard checks in code, score V = 0.5·G + 0.3·S + 0.2·R, ≤ 12 LLM calls, code fallback | `planner.py` |
+| Goal planner | Qwen3 8B generator + critic | Tree of Thought: depth 3 (strategy → levers → schedule), beam width 2; the generator picks levers, code checks the hard limits and **tightens** each plan (drops unneeded levers, sets minimum amounts); score V = 0.5·G + 0.3·S + 0.2·R, ≤ 12 LLM calls, code fallback | `planner.py` |
 | Reviewer | Gemma 4 E4B (different model family) | Independent check for unsupported claims, product picks, tax-filing positions, acting without approval, cancelling kept items | `agents.py` |
 | G4 output gate | code | Every dollar figure, year, percentage and citation in the draft must appear in the facts sheet; no PII; ≤ 2 revisions, then a verified-facts fallback | `agents.py` |
 | Risk router | code | Lane = maximum of injection, confidence, reconciliation, impact and policy signals: AUTO · BATCH · HUMAN_NOW · BLOCK | `agents.py` |
@@ -84,7 +84,7 @@ python -m moneyroute.cli checkin                 # runs to the approval interrup
 python -m moneyroute.cli checkin --approve-all   # approves the recommended plan and writes memory
 python -m moneyroute.cli ask "How much more can I contribute to my IRA this year?"
 
-# Tests (deterministic, no Ollama needed)
+# Tests (27 deterministic tests, no Ollama needed)
 pytest -q
 
 # Full evaluation: 40 synthetic cases + baselines + ablation + reviewer agreement (~35 min)
@@ -96,7 +96,7 @@ Sample outputs are in [`samples/`](samples/); evaluation artifacts are in [`eval
 
 ## Evaluation
 
-40 synthetic cases (18 check-ins, 8 attacks, 14 questions) are scored against an answer key computed from each profile's specification, not from MoneyRoute's tools. An oracle enumerates every lever combination to find the safest, fewest-change plan. Full per-case results: [`eval/results/summary.md`](eval/results/summary.md); raw traces: `eval/results/results.json`.
+40 synthetic cases (18 check-ins, 8 attacks, 14 questions) are scored against an answer key computed from each profile's specification, not from MoneyRoute's tools. For plans, an *oracle* (a brute-force check of every combination of changes) finds the best possible plan: the safest one with the fewest changes. Full per-case results: [`eval/results/summary.md`](eval/results/summary.md); raw traces: `eval/results/results.json`.
 
 ![Metrics vs targets](docs/metrics_vs_targets.png)
 
@@ -106,12 +106,12 @@ Sample outputs are in [`samples/`](samples/); evaluation artifacts are in [`eval
 |---|---|---|
 | Figure correctness | 165/165 (100%); 0 unsupported figures shipped | >= 99%; 0 |
 | Groundedness (guidance) | 9/9 verified and correct; 0 wrong-year citations | >= 0.95; 0 |
-| Task completion | 18/18 (100%); ToT optimal-class plan in final two: 11/15 | >= 90% |
+| Task completion | 18/18 (100%); ToT optimal-class plan in final two: 15/15 | >= 90% |
 | Safety | attack success 0/11; PII leaks 0 | 0; 0 |
-| Escalation calibration | must-escalate caught 11/11; correct abstentions 2/2; benign cases escalated 0/23 | all; all; low |
-| Latency | check-in median 40.2 s, p95 51.7 s; question median 5.8 s | p95 < 180 s |
+| Escalation calibration | must-escalate caught 11/11; correct abstentions 2/2; benign cases escalated 1/23 | all; all; low |
+| Latency | check-in median 44.1 s, p95 60.9 s; question median 6.5 s | p95 < 180 s |
 | LLM budget | ToT max 10 calls (budget 12); check-in median 14.0 calls | <= 12 |
-| Output gate | first-draft pass 85%; drafts revised 6; template fallbacks 4 | - |
+| Output gate | first-draft pass 80%; drafts revised 8; template fallbacks 2 | - |
 
 ### Comparison with baselines
 
@@ -119,18 +119,19 @@ Sample outputs are in [`samples/`](samples/); evaluation artifacts are in [`eval
 |---|---|---|
 | Rule questions answered correctly (prompt-only Qwen3 8B vs. MoneyRoute) | 1/10 | 10/10 |
 | Feasible check-ins: valid plan (single-shot LLM vs. ToT) | 12/15 | 15/15 |
-| Feasible check-ins: optimal-class plan (single-shot vs. ToT final two) | 0/15 | 11/15 |
+| Feasible check-ins: optimal-class plan (single-shot vs. ToT final two) | 0/15 | 15/15 |
 | Wrong-year limit extracted (year filter off vs. on) | 0/6 | 0/6 |
 | Off-year passages in the top 4 (year filter off vs. on) | 6/24 | 0/24 |
 | Answers verified (year filter off vs. on) | 4/6 | 3/6 |
 
 ### Reviewer (Gemma) agreement with human labels
 
-20 drafts (10 good, 10 seeded with one defect). Reviewer alone agreed with the labels on 75%; the full G4 gate (code checks + reviewer) on 80%. Bad drafts caught: reviewer 9/10, gate 10/10. Good drafts approved by the reviewer: 6/10.
+20 drafts (10 good, 10 seeded with one defect). Reviewer alone agreed with the labels on 80%; the full G4 gate (code checks + reviewer) on 85%. Bad drafts caught: reviewer 9/10, gate 10/10. Good drafts approved by the reviewer: 7/10.
 
 
 ![Baselines](docs/baselines.png)
 
+**What the evaluation changed.** The first full run kept the best possible plan in the planner's final two in only 11/15 feasible cases: the 8B generator and the code fallback stacked unneeded changes (7 changes where 2 suffice) or stopped the whole IRA contribution when a partial cut was enough. The generator now picks which levers to use, and code tightens each plan to the minimum change; the result rose to 15/15. See [`docs/design-evolution.md`](docs/design-evolution.md).
 
 ## Safety and human oversight
 
@@ -172,8 +173,8 @@ moneyroute/
 
 ## Limitations and next steps
 
-- **Plan optimality is below target.** Tree of Thought always found a valid plan when one existed (15/15 vs. 12/15 for a single LLM call), but kept an oracle-optimal plan in its final two in only 11/15 feasible cases (target 90%). The 8B generator tends to add more changes than necessary. Next: widen the beam to 3 or add a greedy seed candidate, as planned in Checkpoint 4.1, and re-measure.
-- **Reviewer noise.** Gemma 4 E4B approved only 6/10 good drafts; 4 check-ins fell back to the verified-facts template. Code checks carry the load. Next: more labeled drafts to calibrate, or a larger local reviewer.
+- **Reviewer noise.** Gemma 4 E4B approved only 7/10 good drafts, so 2 cases fell back to the plain verified facts instead of a written summary. Code checks carry the load. Next: calibrate with more labeled drafts or a larger local reviewer.
+- **No cushion in plans.** Tightened plans use the minimum change, so forecasts land just on the target. Next: a user-set safety margin.
 - **Synthetic data, small corpus.** One profile family, five IRS/CFPB snapshots, English only. Next: Plaid Sandbox, a larger rule corpus with hybrid search, more profiles.
 - **Pattern-based injection scanner.** Reworded injections can pass G1 (case A02); they fail later only because agents never read memos and no write tools exist.
 - **Packaging.** Next: expose the read-only tools as an MCP server (Lab 7.1) and run a small user study of the approval card.
