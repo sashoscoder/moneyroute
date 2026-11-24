@@ -2,7 +2,7 @@
 
 MoneyRoute runs a **monthly financial check-in** for people who juggle many accounts. It finds spending changes and subscription price increases, keeps a savings goal on track by searching for a safe plan, and answers rule questions (IRA and 401(k) limits, emergency-fund guidance) with **verified citations** to official IRS and CFPB sources. All models run **locally through Ollama**, so bank data never reaches a cloud LLM. MoneyRoute **never moves money**: every change waits for the user's approval.
 
-> Capstone project, *Agentic AI: Building Autonomous Systems for Real-World Applications* (CMU / Emeritus), Module 7.
+> Capstone project by **Saravanesh Selvaraj**, *Agentic AI: Building Autonomous Systems for Real-World Applications* (CMU / Emeritus), Module 7.
 > All people, accounts and transactions in this repository are **synthetic**.
 
 ![Architecture](docs/architecture.png)

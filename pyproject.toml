@@ -3,6 +3,7 @@ name = "moneyroute"
 version = "1.0.0"
 description = "Privacy-first personal finance agent: five local agents, Tree-of-Thought planning, cited guidance, and code guardrails"
 readme = "README.md"
+authors = [{ name = "Saravanesh Selvaraj" }]
 requires-python = ">=3.11"
 dependencies = [
     "langgraph>=1.0",
